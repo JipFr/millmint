@@ -10,6 +10,7 @@ let currentGroup;
 let gender = "f";
 let redrawDebounce;
 let colorDebounce;
+let maskCounter = 0;
 
 // Set download label
 if (!isSafari) {
@@ -909,62 +910,84 @@ function generateDollImage(resetTimer = true) {
 		text.innerText = "Working...";
 	}
 
-	if (isSafari)
-		document.querySelector(".dolls-download-stuff").classList.remove("hidden");
+	const svg = document.querySelector(".dolls-canvas-inner svg").outerHTML;
 
-	// Make "canvas" super wide, download image
-	requestAnimationFrame(() => {
-		const node = document.querySelector(".dolls-canvas-inner");
+	const l = document.createElement("div");
+	l.outerHTML = svg.outerHTML;
+	l.querySelector('[href]').forEach(el => el.href)
 
-		const desiredWidth = 1000;
-		const scale = desiredWidth / node.clientWidth;
+	const data = encodeURIComponent(svg);
+	const url = "data:image/svg+xml;utf8," + data;
 
-		const opts = {
-			width: node.clientWidth * scale,
-			height: node.clientHeight * scale,
-			style: {
-				transform: "scale(" + scale + ")",
-				transformOrigin: "top left",
-			},
-		};
+	const image = document.createElement("img");
+	image.src = url;
+	document.querySelector(".content").appendChild(image);
+	img.width = 1000;
+	img.height = 1500;
 
-		document.querySelectorAll(".lol").forEach((t) => t.remove());
+	const canvas = document.createElement("canvas");
+	const ctx = canvas.getContext("2d");
+	canvas.width = 1000;
+	canvas.height = 1500;
 
-		htmlToImage.getImage(node, opts).then(async (img) => {
-			img.width = opts.width;
-			img.height = opts.height;
-			img.classList.add("html-to-image-svg");
+	document.querySelector(".content").appendChild(canvas);
 
-			const canvas = document.createElement("canvas");
-			const ctx = canvas.getContext("2d");
-
-			canvas.width = opts.width;
-			canvas.height = opts.height;
-
-			ctx.drawImage(img, 0, 0, opts.width, opts.height);
-
-			const container = document.querySelector(".doll-img-container");
-			container.innerHTML = "";
-
-			if (isSafari) {
-				container.appendChild(canvas);
-				window.scrollTo(0, 1000);
-			} else {
-				downloadDollImage(canvas);
-			}
-
-			img.style.minWidth = "auto";
-
-			// Reset button label
-			for (const text of downloadText) {
-				text.innerText = isSafari
-					? text.parentNode.getAttribute("data-text")
-					: "Download Image";
-			}
-		});
-
-		document.querySelector(".dolls-canvas").removeAttribute("style");
+	image.addEventListener("load", () => {
+		ctx.drawImage(image, 0, 0);
 	});
+
+	// if (isSafari)
+	// 	document.querySelector(".dolls-download-stuff").classList.remove("hidden");
+
+	// // Make "canvas" super wide, download image
+	// requestAnimationFrame(() => {
+
+	// 	const opts = {
+	// 		width: node.clientWidth * scale,
+	// 		height: node.clientHeight * scale,
+	// 		style: {
+	// 			transform: "scale(" + scale + ")",
+	// 			transformOrigin: "top left",
+	// 		},
+	// 	};
+
+	// 	document.querySelectorAll(".lol").forEach((t) => t.remove());
+
+	// 	htmlToImage.getImage(node, opts).then(async (img) => {
+	// 		img.width = opts.width;
+	// 		img.height = opts.height;
+	// 		img.classList.add("html-to-image-svg");
+
+	// 		const canvas = document.createElement("canvas");
+	// 		const ctx = canvas.getContext("2d");
+
+	// 		canvas.width = opts.width;
+	// 		canvas.height = opts.height;
+
+	// 		ctx.drawImage(img, 0, 0, opts.width, opts.height);
+
+	// 		const container = document.querySelector(".doll-img-container");
+	// 		container.innerHTML = "";
+
+	// 		if (isSafari) {
+	// 			container.appendChild(canvas);
+	// 			window.scrollTo(0, 1000);
+	// 		} else {
+	// 			downloadDollImage(canvas);
+	// 		}
+
+	// 		img.style.minWidth = "auto";
+
+	// 		// Reset button label
+	// 		for (const text of downloadText) {
+	// 			text.innerText = isSafari
+	// 				? text.parentNode.getAttribute("data-text")
+	// 				: "Download Image";
+	// 		}
+	// 	});
+
+	// 	document.querySelector(".dolls-canvas").removeAttribute("style");
+	// });
 }
 
 function downloadDollImage(
@@ -1003,43 +1026,82 @@ function render() {
 	// Find all layers for every single selected asset and sort them by their z-index
 	const allLayers = getLayers();
 
+	maskCounter = 0;
+
 	// Clear "canvas"
 	const wrapper = document.querySelector(".dolls-canvas-inner");
 	wrapper.innerHTML = "";
 
+	// Create SVG
+	const svg = document.createElement("svg");
+	svg.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+	svg.setAttribute("width", "100%");
+	svg.setAttribute("height", "100%");
+
 	// Draw all layers
 	for (const asset of allLayers) {
-		const layer = document.createElement("div");
+		const layer = document.createElementNS("http://www.w3.org/2000/svg", "g");
 		layer.classList.add("layer");
 
 		const layers = asset.img.layers ? asset.img.layers : [asset.img];
 
 		for (const img of layers) {
 			if (groupColors[asset.group] && !img.noColor) {
-				const d = document.createElement("div");
-				d.classList.add("mask");
-
-				// Convert mask image to data url
-				const dataUrl = getDataUrl(img);
-				d.id = img.src;
-
-				// Define the URL and mask in general
-				d.setAttribute(
-					"style",
-					`
-					--url: url('${dataUrl}');
-					background: ${asset.img.mask};
-				`
+				// Mask
+				const mask = document.createElementNS(
+					"http://www.w3.org/2000/svg",
+					"mask"
 				);
+				const rid = "mask-" + ++maskCounter;
+				mask.id = rid;
+				mask.setAttribute("mask-type", "alpha");
 
-				layer.appendChild(d);
+				// Image inside mask
+				const image = document.createElementNS(
+					"http://www.w3.org/2000/svg",
+					"image"
+				);
+				image.setAttribute("href", img.src);
+				image.setAttribute("width", "100%");
+				image.setAttribute("height", "100%");
+
+				mask.appendChild(image);
+
+				// Rect
+				const rect = document.createElementNS(
+					"http://www.w3.org/2000/svg",
+					"rect"
+				);
+				rect.setAttribute("width", "100%");
+				rect.setAttribute("height", "100%");
+				rect.setAttribute("x", "0");
+				rect.setAttribute("y", "0");
+				rect.setAttribute("fill", groupColors[asset.group]);
+				rect.setAttribute("mask", `url(#${rid})`);
+
+				// Append mask and rect
+				layer.appendChild(mask);
+				layer.appendChild(rect);
 			} else {
-				layer.appendChild(img);
+				const image = document.createElementNS(
+					"http://www.w3.org/2000/svg",
+					"image"
+				);
+				image.setAttribute("href", img.src);
+
+				image.setAttribute("x", 0);
+				image.setAttribute("y", 0);
+				image.setAttribute("width", "100%");
+				image.setAttribute("height", "100%");
+
+				layer.appendChild(image);
 			}
 		}
 
-		wrapper.appendChild(layer);
+		svg.appendChild(layer);
 	}
+	wrapper.appendChild(svg);
+	wrapper.innerHTML += ""; // lmao what the fuck
 }
 
 function getDataUrl(img) {

@@ -2807,6 +2807,8 @@ ol {
   .dolls-canvas .dolls-canvas-inner {
     width: 100%;
     height: 100%; }
+  .dolls-canvas rect {
+    mask-size: 100%; }
   .dolls-canvas .layer,
   .dolls-canvas .layer img,
   .dolls-canvas .layer .mask {
